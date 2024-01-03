@@ -51,9 +51,9 @@ The docstring in the `prompt_injection_defense.server` file provides information
 | FT training size / test size  |                    |                    | 400 / 100            | 1000 / 100         | 400 / 100          | 400 / 100  | 400 / 100                   |  400/100                   |
 |                    Base Model | curie              |   curie            |       davinci_002    |        davinci_002 |       davinci_002  | davinci_002 | davinci_002                   |   davinci_002                  |
 | Quality vs Baseline           |                    | Better than GPT    | No Quality Loss      | No Quality Loss    | No Quality Loss      | Better than GPT (87%->92%)                   | No Quality Loss (86%)                    |  No Quality Loss 
-| Success Rate PI [Start/GPT]   | 98%                | 100%               | 98%                  | 100%               | 99%                | 89% | 89%                   |                     |
-| Success Rate PI [Start/FT]    | 0%                 | 0%                 | 0%                   | 0%                 | 0%                 | 0% | 0%                |                     |
-| Success Rate PI [End/GPT]     | 96%                | 99%                | 100%                 | 100%               | 100%               | 84% | 84%                   | 99%                    |
+| Success Rate PI [Start/GPT]   | 98%                | 100%               | 98%                  | 100%               | 99%                | 89% | 89%                   |  99%                   |
+| Success Rate PI [Start/FT]    | 0%                 | 0%                 | 0%                   | 0%                 | 0%                 | 0% | 0%                | 0%                    |
+| Success Rate PI [End/GPT]     | 96%                | 99%                | 100%                 | 100%               | 100%               | 84% | 84%                   | 100%                    |
 | Success Rate PI [End/FT]      | 0%                 | 0%                 | 2%                   | 0%                 | 0%                 | 0% | 0%                |  0%                   |
 | Success Rate PI [Middle/GPT]  | 12%                | 89%                | 93%                  | 52%                | 71%                | 85% | 85%                   |                     |
 | Success Rate PI [Middle/FT]   | 0%                 | 0%                 | 0%                   | 0%                 | 0%                 | 0% | 0%                   |                     |
