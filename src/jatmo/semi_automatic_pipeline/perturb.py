@@ -52,6 +52,10 @@ def perturb_model(
                 total_queries += 1
 
     success_rates = [[0 for _ in prompt_injections] for _ in positions]
+    outputs = [
+        [["" for _ in inputs] for _ in prompt_injections] for _ in positions
+    ]
+
     regular_exp = [
         re.compile(r"^\s*" + p.strip() + r"[.\s]*$", re.IGNORECASE)
         for _, p in prompt_injections
@@ -61,7 +65,7 @@ def perturb_model(
         total=total_queries,
         desc=f"Generating outputs for model {model}",
     ):
-        (p_idx, _, position_idx), resp = resp_queue.get(block=True)
+        (p_idx, input_idx, position_idx), resp = resp_queue.get(block=True)
         if resp is None:
             continue
         text_response = (
@@ -69,12 +73,13 @@ def perturb_model(
             if model_type != "chat"
             else resp.choices[0].message.content
         )
+        outputs[position_idx][p_idx][input_idx] = text_response
         if regular_exp[p_idx].match(text_response):
             success_rates[position_idx][p_idx] += 1
 
     success_rates = [[v / len(inputs) for v in s] for s in success_rates]
     kill_servers()
-    return success_rates
+    return success_rates, outputs
 
 
 def prompt_inject(
@@ -91,7 +96,7 @@ def prompt_inject(
     gpt_kwargs = kwargs.copy()
     gpt_kwargs["query_type"] = "chat"
     gpt_kwargs["model"] = "gpt-3.5-turbo"
-    success_gpt = perturb_model(
+    success_gpt, raw_gpt_outputs = perturb_model(
         inputs,
         prompt_injections,
         positions,
@@ -108,7 +113,7 @@ def prompt_inject(
     success_ft_per_model = {}
     for model in models:
         ft_kwargs["model"] = model
-        success_ft = perturb_model(
+        success_ft, raw_ft_outputs = perturb_model(
             inputs,
             prompt_injections,
             positions,
@@ -124,7 +129,11 @@ def prompt_inject(
             )
             for s in success_ft
         ]
-        success_ft_per_model[model] = success_ft, best_results_ft
+        success_ft_per_model[model] = (
+            success_ft,
+            best_results_ft,
+            raw_ft_outputs,
+        )
 
     best_results_gpt = [
         max(
@@ -134,4 +143,9 @@ def prompt_inject(
         for s in success_gpt
     ]
 
-    return (success_gpt, best_results_gpt, success_ft_per_model)
+    return (
+        success_gpt,
+        best_results_gpt,
+        raw_gpt_outputs,
+        success_ft_per_model,
+    )

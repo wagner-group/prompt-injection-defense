@@ -152,7 +152,7 @@ def jatmo(
 
     # Prompt injection eval
     if not only_prompt_inject_teacher:
-        success_gpt, best_results_gpt, success_ft = wrapper(
+        success_gpt, best_results_gpt, raw_gpt_outputs, success_ft = wrapper(
             lambda: prompt_inject(
                 inputs[-config.test :],
                 config.models,
@@ -165,7 +165,12 @@ def jatmo(
             "prompt_injection_results.pkl",
         )
     else:
-        success_gpt, best_results_gpt, success_ft = prompt_inject(
+        (
+            success_gpt,
+            best_results_gpt,
+            raw_gpt_outputs,
+            success_ft,
+        ) = prompt_inject(
             inputs[-config.test :],
             [],
             config.prompt_injections,
@@ -190,5 +195,5 @@ def jatmo(
     return (
         model_ids,
         eval_output,
-        (success_gpt, best_results_gpt, success_ft),
+        (success_gpt, best_results_gpt, raw_gpt_outputs, success_ft),
     )

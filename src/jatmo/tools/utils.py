@@ -17,7 +17,7 @@ class ConfigSpec:
     task: str = ""
     teacher: str = "gpt-3.5-turbo"
     rules: Optional[List[str]] = field(default_factory=list, hash=False)
-    oneshot: Optional[str] = None
+    fewshot: Optional[List[str]] = field(default_factory=list, hash=False)
     training_set_sizes: Optional[List[int]] = field(
         default_factory=list, hash=False
     )

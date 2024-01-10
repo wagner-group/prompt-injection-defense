@@ -88,7 +88,12 @@ def gather_inputs(
 
 
 def run(
-    training_set_sizes, path, oneshot=False, parallelism=32, max_tokens=512
+    training_set_sizes,
+    path,
+    fewshot=0,
+    parallelism=32,
+    max_tokens=512,
+    additional_rules=None,
 ):
     setup_dir(path)
 
@@ -109,8 +114,9 @@ def run(
     config.teacher = "gpt-3.5-turbo"
     config.parallelism = parallelism
     config.task = task_prompt
-    config.oneshot = raw_inputs[0] if oneshot else None
+    config.fewshot = raw_inputs[:fewshot] if fewshot else None
     config.no_formatting = True
+    config.rules = additional_rules
 
     # Run
     _, config = jatmo_synthetic(
@@ -121,7 +127,7 @@ def run(
 
     # Eval
     jatmo_synthetic_external_dataset_eval(
-        orig_data=raw_inputs,
+            orig_data=raw_inputs[:100],
         config=config,
         print_results=True,
     )

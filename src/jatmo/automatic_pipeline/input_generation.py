@@ -20,7 +20,6 @@ from ..server import init_servers, kill_servers
 from .utils import (
     get_formatting_input,
     get_generation_prompt,
-    get_oneshot_prompt,
     parse_inputs,
     reformat_prompt,
 )
@@ -30,9 +29,9 @@ def get_input_list(
     task_description,
     number_of_inputs=1000,
     additional_rules=None,
-    example=None,
+    examples=None,
     parallelism=8,
-    seed_size=10,
+    seed_size=5,
     use_random_seed=True,
 ):
     """
@@ -55,41 +54,27 @@ def get_input_list(
 
     kwargs = {
         "timeout": 180,
-        "model": "gpt-4-1106-preview",
+        "model": "gpt-4",
         "temperature": 1.0,
     }
 
     # Start by seeding the generation with a couple examples.
 
     inputs = []
-    seeds = [] if example is None else [example]
+    seeds = [] if examples is None else examples
 
-    seed_size = min(seed_size, number_of_inputs)
+    seed_size = min(seed_size * (1 + len(seeds)), number_of_inputs)
 
     for i in range(seed_size):
-        if example is None:
-            system, prompt = get_generation_prompt(
-                i + 1,
-                task_description,
-                additional_rules=additional_rules,
-                random_seed="".join(
-                    random.choices(string.ascii_uppercase, k=32)
-                )
-                if use_random_seed
-                else None,
-            )
-        else:
-            system, prompt = get_oneshot_prompt(
-                i + 1,
-                task_description,
-                example,
-                additional_rules=additional_rules,
-                random_seed="".join(
-                    random.choices(string.ascii_uppercase, k=32)
-                )
-                if use_random_seed
-                else None,
-            )
+        system, prompt = get_generation_prompt(
+            i + 1,
+            task_description,
+            additional_rules=additional_rules,
+            random_seed="".join(random.choices(string.ascii_uppercase, k=32))
+            if use_random_seed
+            else None,
+            example=seeds[i % len(seeds)] if len(seeds) else None,
+        )
         kwargs["system_prompt"] = system
         queue.put((i, prompt, math.inf, kwargs, resp_queue))
 
@@ -101,36 +86,24 @@ def get_input_list(
 
     # Now, generate the rest of the inputs.
 
+    current_inputs = set()
+
     orig_number_of_inputs = number_of_inputs
     while orig_number_of_inputs > len(inputs):
         number_of_inputs = orig_number_of_inputs - len(inputs)
         for i in range(number_of_inputs):
-            if example is None:
-                local_example = random.choice(seeds)
-                _, prompt = get_generation_prompt(
-                    len(inputs) + i + 1,
-                    task_description,
-                    additional_rules=additional_rules,
-                    example=example,
-                    random_seed="".join(
-                        random.choices(string.ascii_uppercase, k=32)
-                    )
-                    if use_random_seed
-                    else None,
+            local_example = random.choice(seeds)
+            _, prompt = get_generation_prompt(
+                len(inputs) + i + 1,
+                task_description,
+                additional_rules=additional_rules,
+                example=local_example,
+                random_seed="".join(
+                    random.choices(string.ascii_uppercase, k=32)
                 )
-            else:
-                local_example = random.choice(seeds)
-                _, prompt = get_oneshot_prompt(
-                    len(inputs) + i + 1,
-                    task_description,
-                    local_example,
-                    additional_rules=additional_rules,
-                    random_seed="".join(
-                        random.choices(string.ascii_uppercase, k=32)
-                    )
-                    if use_random_seed
-                    else None,
-                )
+                if use_random_seed
+                else None,
+            )
             queue.put((len(inputs) + i, prompt, math.inf, kwargs, resp_queue))
 
         for _ in range(number_of_inputs):
@@ -138,6 +111,10 @@ def get_input_list(
             gen_outputs = parse_inputs(resp.choices[0].message.content)
             if not gen_outputs:
                 continue
+            if gen_outputs.strip().lower()[:128] in current_inputs:
+                continue
+            current_inputs.add(gen_outputs.strip().lower()[:128])
+
             inputs.append(gen_outputs)
             pbar.update(1)
 
@@ -146,7 +123,7 @@ def get_input_list(
 
 
 def format_inputs(
-    task_description, inputs, parallelism=8, example=None, seed_size=10
+    task_description, inputs, parallelism=8, examples=None, seed_size=10
 ):
     """
     Format the inputs using a task description and parallel processing.
@@ -160,6 +137,8 @@ def format_inputs(
         list: The formatted inputs.
     """
 
+    example = examples[0] if examples is not None else None
+
     queue, manager = init_servers(parallelism)
     resp_queue = manager.Queue()
     kwargs = {"timeout": 180, "model": "gpt-4-1106-preview", "temperature": 1.0}
@@ -170,36 +149,39 @@ def format_inputs(
     formatted_inputs = ["" for _ in inputs]
     inputs = [parse_inputs(g) for g in inputs]
 
-    possible_formats = []
-    for i in range(seed_size):
-        system, prompt = get_formatting_input(task_description, inputs[i])
-        kwargs["system_prompt"] = system
-        queue.put((i, prompt, math.inf, kwargs, resp_queue))
-    for i in range(seed_size):
-        idx, resp = resp_queue.get(block=True)
-        try:
-            possible_formats.append(
-                (
-                    idx,
-                    "\n###\n".join(
-                        f.strip()
-                        for f in resp.choices[0].message.content.split("###")[
-                            1:
-                        ]
-                    ),
+    if example is None:
+        possible_formats = []
+        for i in range(seed_size):
+            system, prompt = get_formatting_input(task_description, inputs[i])
+            kwargs["system_prompt"] = system
+            queue.put((i, prompt, math.inf, kwargs, resp_queue))
+        for i in range(seed_size):
+            idx, resp = resp_queue.get(block=True)
+            try:
+                possible_formats.append(
+                    (
+                        idx,
+                        "\n###\n".join(
+                            f.strip()
+                            for f in resp.choices[0].message.content.split(
+                                "###"
+                            )[1:]
+                        ),
+                    )
                 )
-            )
-        except IndexError:
-            continue
+            except IndexError:
+                continue
 
-    if not len(possible_formats):
-        kill_servers()
-        raise ValueError("Unable to format inputs. Please try again.")
+        if not len(possible_formats):
+            kill_servers()
+            raise ValueError("Unable to format inputs. Please try again.")
 
-    skip_idx, example = random.choice(possible_formats)
-    print(example)
-    formatted_inputs[skip_idx] = task_description + " ###\n" + example
-    pbar.update(1)
+        skip_idx, example = random.choice(possible_formats)
+        formatted_inputs[skip_idx] = task_description + " ###\n" + example
+        pbar.update(1)
+
+    else:
+        skip_idx = None
 
     # Remaining examples
     kwargs["model"] = "gpt-4-1106-preview"
@@ -229,8 +211,6 @@ def format_inputs(
                 f.strip() for f in formatted_inputs[idx].split("###")
             )
         )
-        if idx % 20 == 0:
-            print(formatted_inputs[idx])
 
     kill_servers()
 

@@ -11,7 +11,7 @@ Example tasks:
     "Determine whether the following comment is toxic."
 """
 
-import sys
+import argparse
 
 from .code_summarization import run as run_code_summarization
 from .news_summarization import run as run_news_summarization
@@ -20,24 +20,47 @@ from .translation import run as run_translation
 
 
 def main():
-    task = sys.argv[1]
-    path = sys.argv[2]
-    if sys.argv[3] == "oneshot":
-        one_shot = True
-        training_set_sizes = (
-            [int(x) for x in sys.argv[4:]] if len(sys.argv) > 4 else [800]
-        )
-    else:
-        one_shot = False
-        training_set_sizes = (
-            [int(x) for x in sys.argv[3:]] if len(sys.argv) > 3 else [800]
-        )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("task", type=str)
+    parser.add_argument("path", type=str)
+    parser.add_argument("-f", "--few-shot", type=int, default=0)
+    parser.add_argument(
+        "--tss", "--training-set-sizes", type=int, nargs="+", default=[400]
+    )
+    parser.add_argument(
+        "-a", "--additional-rules", type=str, nargs="+", default=None
+    )
+    args = parser.parse_args()
+
+    task = args.task
+    path = args.path
+    training_set_sizes = args.tss
 
     if task == "review_summarization":
-        run_review_summarization(training_set_sizes, path, oneshot=one_shot)
+        run_review_summarization(
+            training_set_sizes,
+            path,
+            fewshot=args.few_shot,
+            additional_rules=args.additional_rules,
+        )
     if task == "translation":
-        run_translation(training_set_sizes, path, oneshot=one_shot)
+        run_translation(
+            training_set_sizes,
+            path,
+            fewshot=args.few_shot,
+            additional_rules=args.additional_rules,
+        )
     if task == "news_summarization":
-        run_news_summarization(training_set_sizes, path, oneshot=one_shot)
+        run_news_summarization(
+            training_set_sizes,
+            path,
+            fewshot=args.few_shot,
+            additional_rules=args.additional_rules,
+        )
     if task == "code_summarization":
-        run_code_summarization(training_set_sizes, path)
+        run_code_summarization(
+            training_set_sizes,
+            path,
+            fewshot=args.few_shot,
+            additional_rules=args.additional_rules,
+        )

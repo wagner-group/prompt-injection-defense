@@ -89,7 +89,7 @@ def jatmo_synthetic_external_dataset_eval(
 
 def jatmo_synthetic(
     task=None,
-    one_shot_example=None,
+    few_shot_examples=None,
     config=None,
     print_results=False,
     evaluate=True,
@@ -101,17 +101,20 @@ def jatmo_synthetic(
     if config is not None and task is not None:
         raise ValueError("Must specify either config or task, not both.")
 
-    if config is not None and one_shot_example is not None:
+    if config is not None and few_shot_examples is not None:
         raise ValueError(
-            "Must specify either config or one_shot_example, not both."
+            "Must specify either config or few_shot_examples, not both."
         )
+
+    if isinstance(few_shot_examples, str):
+        few_shot_examples = [few_shot_examples]
 
     if config is None:
         config = ConfigSpec()
         config.path = "." + "".join(random.choices(string.ascii_lowercase, k=6))
         config.task = task
         config.training_set_sizes = [800]
-        config.oneshot = one_shot_example
+        config.fewshot = few_shot_examples
 
     if config.temperatures is None or not len(config.temperatures):
         config.temperatures = [1.0, 0.7]
@@ -135,7 +138,7 @@ def jatmo_synthetic(
             task,
             gen_ct,
             additional_rules=additional_rules,
-            example=config.oneshot,
+            examples=config.fewshot,
             use_random_seed=use_random_seed,
         ),
         path,
@@ -143,7 +146,7 @@ def jatmo_synthetic(
     )
 
     gpt_inputs, ft_inputs, example = wrapper(
-        lambda: format_inputs(task, inputs, example=config.oneshot),
+        lambda: format_inputs(task, inputs, examples=config.fewshot),
         path,
         "formatted_inputs.pkl",
     )
@@ -228,7 +231,9 @@ def jatmo_synthetic(
     return model_ids, config
 
 
-def jatmo_synthetic_preview(tasks, ct=10, additional_rules=[]):
+def jatmo_synthetic_preview(tasks, ct=10, additional_rules=None):
+    if additional_rules is None:
+        additional_rules = []
     if isinstance(tasks, str):
         tasks = [tasks]
         is_str = True
