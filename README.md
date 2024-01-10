@@ -26,12 +26,12 @@ model_ids, config = jatmo( inputs, task="Determine whether the following comment
 
 ### `jatmo_synthetic`
 
-The function will return the id of the generated models and the run config. You can pass it a one-shot example. 
+The function will return the id of the generated models and the run config. You can pass it a one-shot example or even multiple examples
 
 ```
 from jatmo import jatmo_synthetic
 
-model_ids, config = jatmo( task="Determine whether the following comment is positive or negative.", one_shot_example = "This movie is awesome!")
+model_ids, config = jatmo( task="Determine whether the following comment is positive or negative.", few_shot_examples = "This movie is awesome!")
 ```
 
 ## Common resources
